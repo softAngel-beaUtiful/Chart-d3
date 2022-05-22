@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title></title>
+  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/dc/4.2.7/style/dc.min.css">
+  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.6/css/bootstrap.css">
+</head>
+<body>
+
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-xs-12 dc-data-count dc-chart" id="data-count">
+      <h2>Owid Covid Latest
+        <small>
+          <span class="filter-count"></span> selected out of <span class="total-count"></span> records |
+           <a id="all" href="#">Reset All</a>
+        </small>
+      </h2>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-xs-6 col-md-4">
+    	<h4>Continent <small><a id="continent">reset</a></small></h4>
+      <div class="dc-chart" id="chart-continent"></div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-xs-6 col-md-4">
+      <div class="dc-chart" id="chart-total-deaths"></div>
+    </div>
+    <div class="col-xs-6 col-md-4">
+      <div class="dc-chart" id="chart-total-vaccinations"></div>
+    </div>
+    <div class="col-xs-6 col-md-4">
+      <div class="dc-chart" id="chart-extreme-poverty"></div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-xs-12">
+      <table class="table table-bordered table-striped" id="data-table">
+        <thead>
+          <tr class="header">
+            <th>ISO Code</th>
+            <th>Continent</th>
+            <th>Location</th>
+            <th>Last Updated Date</th>
+            <th>Total Deaths Per Million</th>
+            <th>Total Vaccinations Per Hundred</th>
+            <th>Extreme Poverty</th>
+          </tr>
+        </thead>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.3.0/d3.min.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/crossfilter/1.3.12/crossfilter.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/dc/4.2.7/dc.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore-min.js"></script>
+<!-- <script type="text/javascript" src="js/bootstrap.min.js"></script> -->
+
+<script>
+	d3.csv('https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/latest/owid-covid-latest.csv').then(function(data) {
+		// convert string type to number type
+		data.forEach(function(d) {
+			d.total_deaths_per_million = +d.total_deaths_per_million;
+			d.total_vaccinations_per_hundred = +d.total_vaccinations_per_hundred;
+			d.extreme_poverty = +d.extreme_poverty;
+		});
+
+		// set crossfilter
+		var ndx = crossfilter(data);
+
+		// create dimensions (x-axis values)
+		var continentDim = ndx.dimension(function(d) { return d.continent; }),
+			totalDeathsDim = ndx.dimension(function(d) { return d.total_deaths_per_million; }),
+			totalVaccinationsDim = ndx.dimension(function(d) { return d.total_vaccinations_per_hundred; }),
+			extremePovertyDim = ndx.dimension(function(d) { return d.extreme_poverty; }),
+			allDim = ndx.dimension(function(d) {return d;});
+
+		// create groups (y-axis values)
+		var countPerContinent = continentDim.group().reduceCount(),
+			countPerTotalDeaths = totalDeathsDim.group(function(d) { return Math.floor(d / 1000) * 1000; }).reduceCount(),
+			countPerTotalVaccinations = totalVaccinationsDim.group(function(d) { return Math.floor(d / 10) * 10; }).reduceCount(),
+			countPerExtremePovert = extremePovertyDim.group(function(d) { return Math.floor(d / 10) * 10; }).reduceCount();
+
+		// creating charts
+		var continentChart = dc.pieChart('#chart-continent'),
+			totalDeathsChart = dc.barChart('#chart-total-deaths'),
+			totalVaccinationsChart = dc.barChart('#chart-total-vaccinations'),
+			extremePovertyChart = dc.barChart('#chart-extreme-poverty');
+
+		// creating data tables
+		var dataTable = dc.dataTable('#data-table');
+
+		// chart configuration
+
+		// pie chart
+
+		continentChart
+			.width(250)
+			.height(250)
+			.dimension(continentDim)
+			.group(countPerContinent)
+			.innerRadius(30);
+
+		// histogram charts
+		totalDeathsChart
+			.width(400)
+			.height(200)
+			.dimension(totalDeathsDim)
+			.group(countPerTotalDeaths)
+			.x(d3.scaleLinear().domain([0, 10000]))
+			.elasticY(true)
+			.barPadding(0.1)
+			.xAxisLabel('Total Deaths Per Million')
+			.yAxisLabel('Count')
+			.xUnits(function(){return 10;})
+			.margins({top:10, right: 20, bottom: 50, left: 50});
+
+		totalVaccinationsChart
+			.width(400)
+			.height(200)
+			.dimension(totalVaccinationsDim)
+			.group(countPerTotalVaccinations)
+			.x(d3.scaleLinear().domain([0, 340]))
+			.elasticY(true)
+			.barPadding(0.1)
+			.xAxisLabel('Total Vaccinations Per Hundred')
+			.yAxisLabel('Count')
+			.xUnits(function(){return 30;})
+			.margins({top:10, right: 20, bottom: 50, left: 50});
+
+		extremePovertyChart
+			.width(400)
+			.height(200)
+			.dimension(extremePovertyDim)
+			.group(countPerExtremePovert)
+			.x(d3.scaleLinear().domain([0, 100]))
+			.elasticY(true)
+			.barPadding(0.1)
+			.xAxisLabel('Extreme Poverty')
+			.yAxisLabel('Count')
+			.xUnits(function(){return 10;})
+			.margins({top:10, right: 20, bottom: 50, left: 50});
+			
+		// data table
+		dataTable
+			.dimension(allDim)
+			.group(function (d) { return 'dc.js insists on putting a row here so I remove it using js'; })
+			// show all data length, default 25
+			.size(data.length)
+			.columns([
+				function (d) { return d.iso_code; },
+				function (d) { return d.continent; },
+				function (d) { return d.location; },
+				function (d) { return d.last_updated_date; },
+				function (d) { return d.total_deaths_per_million; },
+				function (d) { return d.total_vaccinations_per_hundred; },
+				function (d) { return d.extreme_poverty; },
+			])
+			.sortBy(function (d) { return d.iso_code; })
+			.order(d3.ascending)
+			.on('renderlet', function (table) {
+				//each time table is rendered remove extra row dc.js insists on adding
+				table.select('tr.dc-table-group').remove();
+	    });
+
+		// event handler of reset buttons
+		d3.selectAll('a#all').on('click', function() {
+			dc.filterAll();
+			dc.renderAll();
+		});
+
+		d3.selectAll('a#continent').on('click', function() {
+			continentChart.filterAll();
+			dc.redrawAll();
+		});
+
+		dc.renderAll();
+	});
+
+</script>
+
+</body>
+</html>
